@@ -26,6 +26,10 @@ app.use('/api', taskRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/users', userRoutes);
 
+// Error handling
+const errorMiddleware = require('./shared/middleware/error.middleware');
+app.use(errorMiddleware);
+
 // Start server
 app.listen(config.port, () => {
   console.log(`API Gateway running on port ${config.port}`);
