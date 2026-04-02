@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/models"
 	"github.com/task-manager/task-service/pkg/response"
 )
@@ -26,15 +25,6 @@ func NewHandler(service ServiceInterface) *Handler {
 	return &Handler{service: service}
 }
 
-// handleError writes the appropriate HTTP response based on error type
-func handleError(w http.ResponseWriter, err error) {
-	if appErr, ok := err.(*apperror.AppError); ok {
-		response.Error(w, appErr.Code, appErr.Message)
-		return
-	}
-	response.Error(w, http.StatusInternalServerError, "internal server error")
-}
-
 // GetByProject handles GET /projects/{projectId}/tasks
 func (h *Handler) GetByProject(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectId")
@@ -49,7 +39,7 @@ func (h *Handler) GetByProject(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	tasks, err := h.service.GetByProject(r.Context(), projectID, userID, limit, lastID)
 	if err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 
@@ -70,7 +60,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.service.GetByID(r.Context(), taskID)
 	if err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 
@@ -94,7 +84,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	task, err := h.service.Create(r.Context(), req, projectID, userID)
 	if err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 
@@ -117,7 +107,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.service.Update(r.Context(), taskID, req)
 	if err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 
@@ -133,7 +123,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.Delete(r.Context(), taskID); err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 

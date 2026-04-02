@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/response"
 )
 
@@ -18,15 +17,6 @@ func NewHandler(service ServiceInterface) *Handler {
 	return &Handler{service: service}
 }
 
-// handleError writes the appropriate HTTP response based on error type
-func handleError(w http.ResponseWriter, err error) {
-	if appErr, ok := err.(*apperror.AppError); ok {
-		response.Error(w, appErr.Code, appErr.Message)
-		return
-	}
-	response.Error(w, http.StatusInternalServerError, "internal server error")
-}
-
 // Register handles POST /auth/register
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
@@ -37,7 +27,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.Register(r.Context(), req)
 	if err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 
@@ -54,7 +44,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.Login(r.Context(), req)
 	if err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 

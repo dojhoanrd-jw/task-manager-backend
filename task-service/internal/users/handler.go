@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/response"
 )
 
@@ -18,20 +17,11 @@ func NewHandler(service ServiceInterface) *Handler {
 	return &Handler{service: service}
 }
 
-// handleError writes the appropriate HTTP response based on error type
-func handleError(w http.ResponseWriter, err error) {
-	if appErr, ok := err.(*apperror.AppError); ok {
-		response.Error(w, appErr.Code, appErr.Message)
-		return
-	}
-	response.Error(w, http.StatusInternalServerError, "internal server error")
-}
-
 // GetAll handles GET /users (admin only)
 func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	users, err := h.service.GetAll(r.Context())
 	if err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 
@@ -53,7 +43,7 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.UpdateRole(r.Context(), userID, req.Role); err != nil {
-		handleError(w, err)
+		response.HandleError(w, err)
 		return
 	}
 
