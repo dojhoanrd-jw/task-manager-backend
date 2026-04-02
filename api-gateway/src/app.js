@@ -6,8 +6,10 @@ const config = require('./shared/config');
 const app = express();
 
 // Global middleware
+const requestIdMiddleware = require('./shared/middleware/request-id.middleware');
 app.use(cors());
-app.use(morgan('dev'));
+app.use(requestIdMiddleware);
+app.use(morgan(':method :url :status :response-time ms - :req[x-request-id]'));
 app.use(express.json());
 
 // Health check

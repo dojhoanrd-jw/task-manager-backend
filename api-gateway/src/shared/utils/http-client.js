@@ -10,4 +10,12 @@ const httpClient = axios.create({
   },
 });
 
+// Interceptor to forward request ID to the Go service
+httpClient.interceptors.request.use((reqConfig) => {
+  if (reqConfig.requestId) {
+    reqConfig.headers['X-Request-ID'] = reqConfig.requestId;
+  }
+  return reqConfig;
+});
+
 module.exports = httpClient;
