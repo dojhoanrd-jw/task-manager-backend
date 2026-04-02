@@ -103,7 +103,7 @@ func main() {
 
 	// Apply global middleware
 	corsConfig := middleware.DefaultCORSConfig()
-	handler := middleware.Recovery(middleware.Logger(middleware.CORS(corsConfig)(mux)))
+	handler := middleware.Recovery(middleware.RequestID(middleware.Logger(middleware.CORS(corsConfig)(mux))))
 
 	// Determine port
 	port := cfg.Port
