@@ -15,7 +15,9 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'api-gateway' });
 });
 
-// Routes will be registered here in next commits
+// Routes
+const authRoutes = require('./features/auth/auth.routes');
+app.use('/api/auth', authRoutes);
 
 // Start server
 app.listen(config.port, () => {
