@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  task-service:
+    build:
+      context: ./task-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./task-service/.env
+    networks:
+      - app-network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./api-gateway/.env
+    depends_on:
+      - task-service
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
