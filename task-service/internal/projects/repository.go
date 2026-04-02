@@ -35,11 +35,14 @@ func NewRepository(client *firestore.Client) *Repository {
 	return &Repository{client: client}
 }
 
-// GetByUser returns all projects where the user is owner or member
+const maxProjectsPerUser = 100
+
+// GetByUser returns projects where the user is owner or member (limited)
 func (r *Repository) GetByUser(ctx context.Context, userID string) ([]models.Project, error) {
 	iter := r.client.Collection(collectionName).
 		Where("members", "array-contains", userID).
 		OrderBy("createdAt", firestore.Desc).
+		Limit(maxProjectsPerUser).
 		Documents(ctx)
 	defer iter.Stop()
 
