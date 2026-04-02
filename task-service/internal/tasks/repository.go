@@ -37,13 +37,13 @@ func (r *Repository) GetByProject(ctx context.Context, projectID string, limit i
 		OrderBy("createdAt", firestore.Desc).
 		Limit(limit)
 
-	// Cursor-based pagination
+	// Cursor-based pagination using document snapshot for unique ordering
 	if lastID != "" {
 		lastDoc, err := r.client.Collection(collectionName).Doc(lastID).Get(ctx)
 		if err != nil {
 			return nil, apperror.NotFound("cursor document")
 		}
-		query = query.StartAfter(lastDoc.Data()["createdAt"])
+		query = query.StartAfter(lastDoc)
 	}
 
 	iter := query.Documents(ctx)
