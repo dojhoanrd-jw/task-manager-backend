@@ -1,8 +1,9 @@
 package config
 
 import (
-	"log"
 	"os"
+
+	"github.com/task-manager/task-service/pkg/logger"
 )
 
 // Config holds the application configuration
@@ -23,11 +24,13 @@ func Load() *Config {
 	}
 
 	if cfg.GCPProjectID == "" {
-		log.Fatal("GCP_PROJECT_ID is required")
+		logger.Error("GCP_PROJECT_ID is required")
+		os.Exit(1)
 	}
 
 	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET is required")
+		logger.Error("JWT_SECRET is required")
+		os.Exit(1)
 	}
 
 	return cfg

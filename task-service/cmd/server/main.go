@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,6 +16,7 @@ import (
 	"github.com/task-manager/task-service/internal/tasks"
 	"github.com/task-manager/task-service/internal/users"
 	firestoreClient "github.com/task-manager/task-service/pkg/firestore"
+	"github.com/task-manager/task-service/pkg/logger"
 	"github.com/task-manager/task-service/pkg/middleware"
 	"github.com/task-manager/task-service/pkg/models"
 )
@@ -24,7 +24,7 @@ import (
 func main() {
 	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		logger.Info("No .env file found, using system environment variables")
 	}
 
 	// Load configuration
@@ -122,9 +122,10 @@ func main() {
 
 	// Graceful shutdown
 	go func() {
-		log.Printf("Task Service running on port %s", port)
+		logger.Info("Task Service running on port " + port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			logger.Error("Server failed to start: " + err.Error())
+			os.Exit(1)
 		}
 	}()
 
@@ -132,14 +133,15 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown: " + err.Error())
+		os.Exit(1)
 	}
 
-	log.Println("Server stopped gracefully")
+	logger.Info("Server stopped gracefully")
 }

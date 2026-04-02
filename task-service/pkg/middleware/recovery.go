@@ -1,9 +1,10 @@
 package middleware
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 
+	"github.com/task-manager/task-service/pkg/logger"
 	"github.com/task-manager/task-service/pkg/response"
 )
 
@@ -12,7 +13,7 @@ func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("panic recovered: %v", err)
+				logger.Error(fmt.Sprintf("panic recovered: %v", err))
 				response.Error(w, http.StatusInternalServerError, "internal server error")
 			}
 		}()
