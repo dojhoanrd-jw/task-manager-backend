@@ -52,7 +52,7 @@ func TestRegister_Success(t *testing.T) {
 	result, err := svc.Register(context.Background(), RegisterRequest{
 		Name:     "Test",
 		Email:    "test@test.com",
-		Password: "123456",
+		Password: "Test@1234",
 	})
 
 	if err != nil {
@@ -91,14 +91,14 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 	_, _ = svc.Register(context.Background(), RegisterRequest{
 		Name:     "User 1",
 		Email:    "dup@test.com",
-		Password: "123456",
+		Password: "Test@1234",
 	})
 
 	// Try duplicate
 	_, err := svc.Register(context.Background(), RegisterRequest{
 		Name:     "User 2",
 		Email:    "dup@test.com",
-		Password: "123456",
+		Password: "Test@1234",
 	})
 
 	if err == nil {
@@ -111,7 +111,7 @@ func TestLogin_Success(t *testing.T) {
 	svc := NewService(repo, "test-secret", "24h")
 
 	// Create user with hashed password
-	hashed, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+	hashed, _ := bcrypt.GenerateFromPassword([]byte("Test@1234"), bcrypt.DefaultCost)
 	repo.users["user-1"] = &models.User{
 		ID:       "user-1",
 		Name:     "Test",
@@ -122,7 +122,7 @@ func TestLogin_Success(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginRequest{
 		Email:    "login@test.com",
-		Password: "123456",
+		Password: "Test@1234",
 	})
 
 	if err != nil {
@@ -137,7 +137,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, "test-secret", "24h")
 
-	hashed, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+	hashed, _ := bcrypt.GenerateFromPassword([]byte("Test@1234"), bcrypt.DefaultCost)
 	repo.users["user-1"] = &models.User{
 		ID:       "user-1",
 		Email:    "login@test.com",
@@ -161,7 +161,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 
 	_, err := svc.Login(context.Background(), LoginRequest{
 		Email:    "noexist@test.com",
-		Password: "123456",
+		Password: "Test@1234",
 	})
 
 	if err == nil {

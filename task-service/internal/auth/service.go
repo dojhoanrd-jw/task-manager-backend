@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -9,6 +10,10 @@ import (
 	"github.com/task-manager/task-service/pkg/models"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+const minPasswordLength = 8
 
 // ServiceInterface defines the contract for auth business logic
 type ServiceInterface interface {
@@ -41,6 +46,14 @@ func NewService(repo RepositoryInterface, jwtSecret string, jwtExpiration string
 func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthResponse, error) {
 	if req.Name == "" || req.Email == "" || req.Password == "" {
 		return nil, apperror.BadRequest("name, email and password are required")
+	}
+
+	if !emailRegex.MatchString(req.Email) {
+		return nil, apperror.BadRequest("invalid email format")
+	}
+
+	if len(req.Password) < minPasswordLength {
+		return nil, apperror.BadRequest("password must be at least 8 characters")
 	}
 
 	// Check if user already exists

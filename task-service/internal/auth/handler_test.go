@@ -40,7 +40,7 @@ func TestHandlerRegister(t *testing.T) {
 	}
 	handler := NewHandler(svc)
 
-	body, _ := json.Marshal(RegisterRequest{Name: "Test", Email: "test@test.com", Password: "123456"})
+	body, _ := json.Marshal(RegisterRequest{Name: "Test", Email: "test@test.com", Password: "Test@1234"})
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -81,7 +81,7 @@ func TestHandlerLogin(t *testing.T) {
 	}
 	handler := NewHandler(svc)
 
-	body, _ := json.Marshal(LoginRequest{Email: "test@test.com", Password: "123456"})
+	body, _ := json.Marshal(LoginRequest{Email: "test@test.com", Password: "Test@1234"})
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
