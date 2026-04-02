@@ -2,23 +2,29 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// ServiceInterface defines the contract for auth business logic
+type ServiceInterface interface {
+	Register(ctx context.Context, req RegisterRequest) (*AuthResponse, error)
+	Login(ctx context.Context, req LoginRequest) (*AuthResponse, error)
+}
+
 // Service handles authentication business logic
 type Service struct {
-	repo      *Repository
+	repo      RepositoryInterface
 	jwtSecret string
 	jwtExp    time.Duration
 }
 
 // NewService creates a new auth service
-func NewService(repo *Repository, jwtSecret string, jwtExpiration string) *Service {
+func NewService(repo RepositoryInterface, jwtSecret string, jwtExpiration string) *Service {
 	exp, err := time.ParseDuration(jwtExpiration)
 	if err != nil {
 		exp = 24 * time.Hour
@@ -34,19 +40,19 @@ func NewService(repo *Repository, jwtSecret string, jwtExpiration string) *Servi
 // Register creates a new user account
 func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthResponse, error) {
 	if req.Name == "" || req.Email == "" || req.Password == "" {
-		return nil, errors.New("name, email and password are required")
+		return nil, apperror.BadRequest("name, email and password are required")
 	}
 
 	// Check if user already exists
 	existing, _ := s.repo.GetByEmail(ctx, req.Email)
 	if existing != nil {
-		return nil, errors.New("email already registered")
+		return nil, apperror.Conflict("email already registered")
 	}
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, errors.New("failed to hash password")
+		return nil, apperror.Wrap(500, "failed to hash password", err)
 	}
 
 	user := &models.User{
@@ -83,17 +89,17 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 // Login authenticates a user and returns a JWT token
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*AuthResponse, error) {
 	if req.Email == "" || req.Password == "" {
-		return nil, errors.New("email and password are required")
+		return nil, apperror.BadRequest("email and password are required")
 	}
 
 	user, err := s.repo.GetByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, apperror.New(401, "invalid credentials")
 	}
 
 	// Compare passwords
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, apperror.New(401, "invalid credentials")
 	}
 
 	token, err := s.generateToken(user)
@@ -123,5 +129,9 @@ func (s *Service) generateToken(user *models.User) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.jwtSecret))
+	tokenStr, err := token.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return "", apperror.Wrap(500, "failed to generate token", err)
+	}
+	return tokenStr, nil
 }

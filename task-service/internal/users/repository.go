@@ -2,14 +2,20 @@ package users
 
 import (
 	"context"
-	"fmt"
 
 	"cloud.google.com/go/firestore"
+	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/models"
 	"google.golang.org/api/iterator"
 )
 
 const collectionName = "users"
+
+// RepositoryInterface defines the contract for user data access
+type RepositoryInterface interface {
+	GetAll(ctx context.Context) ([]models.User, error)
+	UpdateRole(ctx context.Context, userID string, role models.Role) error
+}
 
 // Repository handles user data access in Firestore
 type Repository struct {
@@ -35,12 +41,12 @@ func (r *Repository) GetAll(ctx context.Context) ([]models.User, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to iterate users: %w", err)
+			return nil, apperror.Wrap(500, "failed to iterate users", err)
 		}
 
 		var user models.User
 		if err := doc.DataTo(&user); err != nil {
-			return nil, fmt.Errorf("failed to parse user: %w", err)
+			return nil, apperror.Wrap(500, "failed to parse user", err)
 		}
 		user.ID = doc.Ref.ID
 		users = append(users, user)
@@ -55,7 +61,7 @@ func (r *Repository) UpdateRole(ctx context.Context, userID string, role models.
 		{Path: "role", Value: string(role)},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to update role: %w", err)
+		return apperror.Wrap(500, "failed to update role", err)
 	}
 	return nil
 }

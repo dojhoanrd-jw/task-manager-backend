@@ -2,20 +2,28 @@ package tasks
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"cloud.google.com/go/firestore"
+	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/models"
 )
 
+// ServiceInterface defines the contract for task business logic
+type ServiceInterface interface {
+	GetByProject(ctx context.Context, projectID string, limit int, lastID string) ([]models.Task, error)
+	GetByID(ctx context.Context, taskID string) (*models.Task, error)
+	Create(ctx context.Context, req CreateTaskRequest, projectID string) (*models.Task, error)
+	Update(ctx context.Context, taskID string, req UpdateTaskRequest) (*models.Task, error)
+	Delete(ctx context.Context, taskID string) error
+}
+
 // Service handles task business logic
 type Service struct {
-	repo *Repository
+	repo RepositoryInterface
 }
 
 // NewService creates a new task service
-func NewService(repo *Repository) *Service {
+func NewService(repo RepositoryInterface) *Service {
 	return &Service{repo: repo}
 }
 
@@ -35,7 +43,7 @@ func (s *Service) GetByID(ctx context.Context, taskID string) (*models.Task, err
 // Create validates and creates a new task
 func (s *Service) Create(ctx context.Context, req CreateTaskRequest, projectID string) (*models.Task, error) {
 	if req.Title == "" {
-		return nil, errors.New("title is required")
+		return nil, apperror.BadRequest("title is required")
 	}
 
 	task := &models.Task{
@@ -58,23 +66,23 @@ func (s *Service) Create(ctx context.Context, req CreateTaskRequest, projectID s
 
 // Update modifies an existing task
 func (s *Service) Update(ctx context.Context, taskID string, req UpdateTaskRequest) (*models.Task, error) {
-	var updates []firestore.Update
+	updates := make(map[string]interface{})
 
 	if req.Title != nil {
-		updates = append(updates, firestore.Update{Path: "title", Value: *req.Title})
+		updates["title"] = *req.Title
 	}
 	if req.Description != nil {
-		updates = append(updates, firestore.Update{Path: "description", Value: *req.Description})
+		updates["description"] = *req.Description
 	}
 	if req.Completed != nil {
-		updates = append(updates, firestore.Update{Path: "completed", Value: *req.Completed})
+		updates["completed"] = *req.Completed
 	}
 	if req.AssignedTo != nil {
-		updates = append(updates, firestore.Update{Path: "assignedTo", Value: *req.AssignedTo})
+		updates["assignedTo"] = *req.AssignedTo
 	}
 
 	if len(updates) == 0 {
-		return nil, errors.New("no fields to update")
+		return nil, apperror.BadRequest("no fields to update")
 	}
 
 	if err := s.repo.Update(ctx, taskID, updates); err != nil {

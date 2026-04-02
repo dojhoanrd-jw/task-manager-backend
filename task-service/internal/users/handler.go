@@ -4,24 +4,34 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/response"
 )
 
 // Handler handles HTTP requests for user management
 type Handler struct {
-	service *Service
+	service ServiceInterface
 }
 
 // NewHandler creates a new users handler
-func NewHandler(service *Service) *Handler {
+func NewHandler(service ServiceInterface) *Handler {
 	return &Handler{service: service}
+}
+
+// handleError writes the appropriate HTTP response based on error type
+func handleError(w http.ResponseWriter, err error) {
+	if appErr, ok := err.(*apperror.AppError); ok {
+		response.Error(w, appErr.Code, appErr.Message)
+		return
+	}
+	response.Error(w, http.StatusInternalServerError, "internal server error")
 }
 
 // GetAll handles GET /users (admin only)
 func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	users, err := h.service.GetAll(r.Context())
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 
@@ -43,7 +53,7 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.UpdateRole(r.Context(), userID, req.Role); err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		handleError(w, err)
 		return
 	}
 

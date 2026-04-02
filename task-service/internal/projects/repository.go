@@ -2,14 +2,28 @@ package projects
 
 import (
 	"context"
-	"fmt"
 
 	"cloud.google.com/go/firestore"
+	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/models"
 	"google.golang.org/api/iterator"
 )
 
-const collectionName = "projects"
+const (
+	collectionName     = "projects"
+	errFailedToParse   = "failed to parse project"
+)
+
+// RepositoryInterface defines the contract for project data access
+type RepositoryInterface interface {
+	GetByUser(ctx context.Context, userID string) ([]models.Project, error)
+	GetByID(ctx context.Context, projectID string) (*models.Project, error)
+	Create(ctx context.Context, project *models.Project) (string, error)
+	Update(ctx context.Context, projectID string, updates map[string]interface{}) error
+	Delete(ctx context.Context, projectID string) error
+	AddMemberTx(ctx context.Context, projectID string, memberID string) error
+	RemoveMemberTx(ctx context.Context, projectID string, memberID string) error
+}
 
 // Repository handles project data access in Firestore
 type Repository struct {
@@ -23,7 +37,6 @@ func NewRepository(client *firestore.Client) *Repository {
 
 // GetByUser returns all projects where the user is owner or member
 func (r *Repository) GetByUser(ctx context.Context, userID string) ([]models.Project, error) {
-	// Get projects where user is a member
 	iter := r.client.Collection(collectionName).
 		Where("members", "array-contains", userID).
 		OrderBy("createdAt", firestore.Desc).
@@ -37,12 +50,12 @@ func (r *Repository) GetByUser(ctx context.Context, userID string) ([]models.Pro
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to iterate projects: %w", err)
+			return nil, apperror.Wrap(500, "failed to iterate projects", err)
 		}
 
 		var project models.Project
 		if err := doc.DataTo(&project); err != nil {
-			return nil, fmt.Errorf("failed to parse project: %w", err)
+			return nil, apperror.Wrap(500, errFailedToParse, err)
 		}
 		project.ID = doc.Ref.ID
 		projects = append(projects, project)
@@ -55,12 +68,12 @@ func (r *Repository) GetByUser(ctx context.Context, userID string) ([]models.Pro
 func (r *Repository) GetByID(ctx context.Context, projectID string) (*models.Project, error) {
 	doc, err := r.client.Collection(collectionName).Doc(projectID).Get(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("project not found: %w", err)
+		return nil, apperror.NotFound("project")
 	}
 
 	var project models.Project
 	if err := doc.DataTo(&project); err != nil {
-		return nil, fmt.Errorf("failed to parse project: %w", err)
+		return nil, apperror.Wrap(500, errFailedToParse, err)
 	}
 	project.ID = doc.Ref.ID
 	return &project, nil
@@ -70,16 +83,21 @@ func (r *Repository) GetByID(ctx context.Context, projectID string) (*models.Pro
 func (r *Repository) Create(ctx context.Context, project *models.Project) (string, error) {
 	ref, _, err := r.client.Collection(collectionName).Add(ctx, project)
 	if err != nil {
-		return "", fmt.Errorf("failed to create project: %w", err)
+		return "", apperror.Wrap(500, "failed to create project", err)
 	}
 	return ref.ID, nil
 }
 
 // Update modifies an existing project in Firestore
-func (r *Repository) Update(ctx context.Context, projectID string, updates []firestore.Update) error {
-	_, err := r.client.Collection(collectionName).Doc(projectID).Update(ctx, updates)
+func (r *Repository) Update(ctx context.Context, projectID string, updates map[string]interface{}) error {
+	var fsUpdates []firestore.Update
+	for path, value := range updates {
+		fsUpdates = append(fsUpdates, firestore.Update{Path: path, Value: value})
+	}
+
+	_, err := r.client.Collection(collectionName).Doc(projectID).Update(ctx, fsUpdates)
 	if err != nil {
-		return fmt.Errorf("failed to update project: %w", err)
+		return apperror.Wrap(500, "failed to update project", err)
 	}
 	return nil
 }
@@ -88,7 +106,60 @@ func (r *Repository) Update(ctx context.Context, projectID string, updates []fir
 func (r *Repository) Delete(ctx context.Context, projectID string) error {
 	_, err := r.client.Collection(collectionName).Doc(projectID).Delete(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to delete project: %w", err)
+		return apperror.Wrap(500, "failed to delete project", err)
 	}
 	return nil
+}
+
+// AddMemberTx adds a member using a Firestore transaction for atomicity
+func (r *Repository) AddMemberTx(ctx context.Context, projectID string, memberID string) error {
+	ref := r.client.Collection(collectionName).Doc(projectID)
+
+	return r.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(ref)
+		if err != nil {
+			return apperror.NotFound("project")
+		}
+
+		var project models.Project
+		if err := doc.DataTo(&project); err != nil {
+			return apperror.Wrap(500, errFailedToParse, err)
+		}
+
+		// Check if already a member
+		for _, m := range project.Members {
+			if m == memberID {
+				return apperror.Conflict("user is already a member")
+			}
+		}
+
+		return tx.Update(ref, []firestore.Update{
+			{Path: "members", Value: firestore.ArrayUnion(memberID)},
+		})
+	})
+}
+
+// RemoveMemberTx removes a member using a Firestore transaction for atomicity
+func (r *Repository) RemoveMemberTx(ctx context.Context, projectID string, memberID string) error {
+	ref := r.client.Collection(collectionName).Doc(projectID)
+
+	return r.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(ref)
+		if err != nil {
+			return apperror.NotFound("project")
+		}
+
+		var project models.Project
+		if err := doc.DataTo(&project); err != nil {
+			return apperror.Wrap(500, errFailedToParse, err)
+		}
+
+		if memberID == project.OwnerID {
+			return apperror.BadRequest("cannot remove the project owner")
+		}
+
+		return tx.Update(ref, []firestore.Update{
+			{Path: "members", Value: firestore.ArrayRemove(memberID)},
+		})
+	})
 }

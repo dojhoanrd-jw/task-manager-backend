@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
+// Role enforcement is handled by the Go Task Service (admin only)
 router.get('/', getAll);
 router.put('/:userId/role', updateRole);
 

@@ -2,20 +2,30 @@ package projects
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"cloud.google.com/go/firestore"
+	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/models"
 )
 
+// ServiceInterface defines the contract for project business logic
+type ServiceInterface interface {
+	GetByUser(ctx context.Context, userID string) ([]models.Project, error)
+	GetByID(ctx context.Context, projectID string) (*models.Project, error)
+	Create(ctx context.Context, req CreateProjectRequest, ownerID string) (*models.Project, error)
+	Update(ctx context.Context, projectID string, req UpdateProjectRequest, userID string) (*models.Project, error)
+	Delete(ctx context.Context, projectID string, userID string) error
+	AddMember(ctx context.Context, projectID string, memberID string, userID string) error
+	RemoveMember(ctx context.Context, projectID string, memberID string, userID string) error
+}
+
 // Service handles project business logic
 type Service struct {
-	repo *Repository
+	repo RepositoryInterface
 }
 
 // NewService creates a new project service
-func NewService(repo *Repository) *Service {
+func NewService(repo RepositoryInterface) *Service {
 	return &Service{repo: repo}
 }
 
@@ -32,7 +42,7 @@ func (s *Service) GetByID(ctx context.Context, projectID string) (*models.Projec
 // Create validates and creates a new project
 func (s *Service) Create(ctx context.Context, req CreateProjectRequest, ownerID string) (*models.Project, error) {
 	if req.Name == "" {
-		return nil, errors.New("project name is required")
+		return nil, apperror.BadRequest("project name is required")
 	}
 
 	project := &models.Project{
@@ -60,19 +70,19 @@ func (s *Service) Update(ctx context.Context, projectID string, req UpdateProjec
 	}
 
 	if project.OwnerID != userID {
-		return nil, errors.New("only the project owner can update it")
+		return nil, apperror.Forbidden("only the project owner can update it")
 	}
 
-	var updates []firestore.Update
+	updates := make(map[string]interface{})
 	if req.Name != nil {
-		updates = append(updates, firestore.Update{Path: "name", Value: *req.Name})
+		updates["name"] = *req.Name
 	}
 	if req.Description != nil {
-		updates = append(updates, firestore.Update{Path: "description", Value: *req.Description})
+		updates["description"] = *req.Description
 	}
 
 	if len(updates) == 0 {
-		return nil, errors.New("no fields to update")
+		return nil, apperror.BadRequest("no fields to update")
 	}
 
 	if err := s.repo.Update(ctx, projectID, updates); err != nil {
@@ -90,13 +100,13 @@ func (s *Service) Delete(ctx context.Context, projectID string, userID string) e
 	}
 
 	if project.OwnerID != userID {
-		return errors.New("only the project owner can delete it")
+		return apperror.Forbidden("only the project owner can delete it")
 	}
 
 	return s.repo.Delete(ctx, projectID)
 }
 
-// AddMember adds a user to a project
+// AddMember adds a user to a project using a transaction
 func (s *Service) AddMember(ctx context.Context, projectID string, memberID string, userID string) error {
 	project, err := s.repo.GetByID(ctx, projectID)
 	if err != nil {
@@ -104,23 +114,13 @@ func (s *Service) AddMember(ctx context.Context, projectID string, memberID stri
 	}
 
 	if project.OwnerID != userID {
-		return errors.New("only the project owner can add members")
+		return apperror.Forbidden("only the project owner can add members")
 	}
 
-	// Check if already a member
-	for _, m := range project.Members {
-		if m == memberID {
-			return errors.New("user is already a member")
-		}
-	}
-
-	updates := []firestore.Update{
-		{Path: "members", Value: firestore.ArrayUnion(memberID)},
-	}
-	return s.repo.Update(ctx, projectID, updates)
+	return s.repo.AddMemberTx(ctx, projectID, memberID)
 }
 
-// RemoveMember removes a user from a project
+// RemoveMember removes a user from a project using a transaction
 func (s *Service) RemoveMember(ctx context.Context, projectID string, memberID string, userID string) error {
 	project, err := s.repo.GetByID(ctx, projectID)
 	if err != nil {
@@ -128,15 +128,8 @@ func (s *Service) RemoveMember(ctx context.Context, projectID string, memberID s
 	}
 
 	if project.OwnerID != userID {
-		return errors.New("only the project owner can remove members")
+		return apperror.Forbidden("only the project owner can remove members")
 	}
 
-	if memberID == project.OwnerID {
-		return errors.New("cannot remove the project owner")
-	}
-
-	updates := []firestore.Update{
-		{Path: "members", Value: firestore.ArrayRemove(memberID)},
-	}
-	return s.repo.Update(ctx, projectID, updates)
+	return s.repo.RemoveMemberTx(ctx, projectID, memberID)
 }

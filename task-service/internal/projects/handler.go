@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/task-manager/task-service/pkg/apperror"
 	"github.com/task-manager/task-service/pkg/models"
 	"github.com/task-manager/task-service/pkg/response"
 )
@@ -12,29 +13,39 @@ const (
 	headerUserID         = "X-User-ID"
 	errProjectIDRequired = "project ID is required"
 	errInvalidBody       = "invalid request body"
+	errUnauthorized      = "unauthorized"
 )
 
 // Handler handles HTTP requests for projects
 type Handler struct {
-	service *Service
+	service ServiceInterface
 }
 
 // NewHandler creates a new project handler
-func NewHandler(service *Service) *Handler {
+func NewHandler(service ServiceInterface) *Handler {
 	return &Handler{service: service}
+}
+
+// handleError writes the appropriate HTTP response based on error type
+func handleError(w http.ResponseWriter, err error) {
+	if appErr, ok := err.(*apperror.AppError); ok {
+		response.Error(w, appErr.Code, appErr.Message)
+		return
+	}
+	response.Error(w, http.StatusInternalServerError, "internal server error")
 }
 
 // GetByUser handles GET /projects
 func (h *Handler) GetByUser(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get(headerUserID)
 	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "unauthorized")
+		response.Error(w, http.StatusUnauthorized, errUnauthorized)
 		return
 	}
 
 	projects, err := h.service.GetByUser(r.Context(), userID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 
@@ -55,7 +66,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	project, err := h.service.GetByID(r.Context(), projectID)
 	if err != nil {
-		response.Error(w, http.StatusNotFound, "project not found")
+		handleError(w, err)
 		return
 	}
 
@@ -66,7 +77,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get(headerUserID)
 	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "unauthorized")
+		response.Error(w, http.StatusUnauthorized, errUnauthorized)
 		return
 	}
 
@@ -78,7 +89,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	project, err := h.service.Create(r.Context(), req, userID)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		handleError(w, err)
 		return
 	}
 
@@ -103,7 +114,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	project, err := h.service.Update(r.Context(), projectID, req, userID)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		handleError(w, err)
 		return
 	}
 
@@ -121,7 +132,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.Delete(r.Context(), projectID, userID); err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		handleError(w, err)
 		return
 	}
 
@@ -145,7 +156,7 @@ func (h *Handler) AddMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.AddMember(r.Context(), projectID, req.UserID, userID); err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		handleError(w, err)
 		return
 	}
 
@@ -164,7 +175,7 @@ func (h *Handler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.RemoveMember(r.Context(), projectID, memberID, userID); err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		handleError(w, err)
 		return
 	}
 
