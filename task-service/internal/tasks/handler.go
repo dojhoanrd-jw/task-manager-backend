@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	errTaskIDRequired    = errTaskIDRequired
-	errProjectIDRequired = errProjectIDRequired
-	errInvalidBody       = errInvalidBody
+	errTaskIDRequired    = "task ID is required"
+	errProjectIDRequired = "project ID is required"
+	errInvalidBody       = "invalid request body"
 )
 
 // Handler handles HTTP requests for tasks
