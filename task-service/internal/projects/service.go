@@ -76,9 +76,11 @@ func (s *Service) Update(ctx context.Context, projectID string, req UpdateProjec
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = *req.Name
+		project.Name = *req.Name
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
+		project.Description = *req.Description
 	}
 
 	if len(updates) == 0 {
@@ -89,7 +91,7 @@ func (s *Service) Update(ctx context.Context, projectID string, req UpdateProjec
 		return nil, err
 	}
 
-	return s.repo.GetByID(ctx, projectID)
+	return project, nil
 }
 
 // Delete removes a project

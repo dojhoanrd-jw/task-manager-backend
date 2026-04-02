@@ -96,19 +96,29 @@ func (s *Service) Create(ctx context.Context, req CreateTaskRequest, projectID s
 
 // Update modifies an existing task
 func (s *Service) Update(ctx context.Context, taskID string, req UpdateTaskRequest) (*models.Task, error) {
+	// Verify task exists before updating
+	task, err := s.repo.GetByID(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+
 	updates := make(map[string]interface{})
 
 	if req.Title != nil {
 		updates["title"] = *req.Title
+		task.Title = *req.Title
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
+		task.Description = *req.Description
 	}
 	if req.Completed != nil {
 		updates["completed"] = *req.Completed
+		task.Completed = *req.Completed
 	}
 	if req.AssignedTo != nil {
 		updates["assignedTo"] = *req.AssignedTo
+		task.AssignedTo = *req.AssignedTo
 	}
 
 	if len(updates) == 0 {
@@ -119,7 +129,7 @@ func (s *Service) Update(ctx context.Context, taskID string, req UpdateTaskReque
 		return nil, err
 	}
 
-	return s.repo.GetByID(ctx, taskID)
+	return task, nil
 }
 
 // Delete removes a task
