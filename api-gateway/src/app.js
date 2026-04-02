@@ -17,16 +17,19 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'api-gateway' });
 });
 
+// Rate limiting
+const { apiLimiter, authLimiter } = require('./shared/middleware/rate-limit.middleware');
+
 // Routes
 const authRoutes = require('./features/auth/auth.routes');
 const taskRoutes = require('./features/tasks/tasks.routes');
 const projectRoutes = require('./features/projects/projects.routes');
 const userRoutes = require('./features/users/users.routes');
 
-app.use('/api/auth', authRoutes);
-app.use('/api', taskRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api', apiLimiter, taskRoutes);
+app.use('/api/projects', apiLimiter, projectRoutes);
+app.use('/api/users', apiLimiter, userRoutes);
 
 // Error handling
 const errorMiddleware = require('./shared/middleware/error.middleware');
