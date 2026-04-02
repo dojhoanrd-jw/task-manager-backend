@@ -8,27 +8,53 @@ import (
 	"github.com/task-manager/task-service/pkg/models"
 )
 
+// MembershipChecker verifies if a user belongs to a project
+type MembershipChecker interface {
+	GetByID(ctx context.Context, projectID string) (*models.Project, error)
+}
+
 // ServiceInterface defines the contract for task business logic
 type ServiceInterface interface {
-	GetByProject(ctx context.Context, projectID string, limit int, lastID string) ([]models.Task, error)
+	GetByProject(ctx context.Context, projectID string, userID string, limit int, lastID string) ([]models.Task, error)
 	GetByID(ctx context.Context, taskID string) (*models.Task, error)
-	Create(ctx context.Context, req CreateTaskRequest, projectID string) (*models.Task, error)
+	Create(ctx context.Context, req CreateTaskRequest, projectID string, userID string) (*models.Task, error)
 	Update(ctx context.Context, taskID string, req UpdateTaskRequest) (*models.Task, error)
 	Delete(ctx context.Context, taskID string) error
 }
 
 // Service handles task business logic
 type Service struct {
-	repo RepositoryInterface
+	repo       RepositoryInterface
+	membership MembershipChecker
 }
 
 // NewService creates a new task service
-func NewService(repo RepositoryInterface) *Service {
-	return &Service{repo: repo}
+func NewService(repo RepositoryInterface, membership MembershipChecker) *Service {
+	return &Service{repo: repo, membership: membership}
+}
+
+// validateMembership checks if the user is a member of the project
+func (s *Service) validateMembership(ctx context.Context, projectID string, userID string) error {
+	project, err := s.membership.GetByID(ctx, projectID)
+	if err != nil {
+		return apperror.NotFound("project")
+	}
+
+	for _, m := range project.Members {
+		if m == userID {
+			return nil
+		}
+	}
+
+	return apperror.Forbidden("you are not a member of this project")
 }
 
 // GetByProject returns paginated tasks for a project
-func (s *Service) GetByProject(ctx context.Context, projectID string, limit int, lastID string) ([]models.Task, error) {
+func (s *Service) GetByProject(ctx context.Context, projectID string, userID string, limit int, lastID string) ([]models.Task, error) {
+	if err := s.validateMembership(ctx, projectID, userID); err != nil {
+		return nil, err
+	}
+
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
@@ -41,9 +67,13 @@ func (s *Service) GetByID(ctx context.Context, taskID string) (*models.Task, err
 }
 
 // Create validates and creates a new task
-func (s *Service) Create(ctx context.Context, req CreateTaskRequest, projectID string) (*models.Task, error) {
+func (s *Service) Create(ctx context.Context, req CreateTaskRequest, projectID string, userID string) (*models.Task, error) {
 	if req.Title == "" {
 		return nil, apperror.BadRequest("title is required")
+	}
+
+	if err := s.validateMembership(ctx, projectID, userID); err != nil {
+		return nil, err
 	}
 
 	task := &models.Task{

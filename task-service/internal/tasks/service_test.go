@@ -8,6 +8,18 @@ import (
 	"github.com/task-manager/task-service/pkg/models"
 )
 
+const testUserID = "user-1"
+
+// mockMembershipChecker implements MembershipChecker for testing
+type mockMembershipChecker struct{}
+
+func (m *mockMembershipChecker) GetByID(ctx context.Context, projectID string) (*models.Project, error) {
+	return &models.Project{
+		ID:      projectID,
+		Members: []string{testUserID},
+	}, nil
+}
+
 // mockRepository implements RepositoryInterface for testing
 type mockRepository struct {
 	tasks   map[string]*models.Task
@@ -70,12 +82,12 @@ func (m *mockRepository) Delete(ctx context.Context, taskID string) error {
 
 func TestServiceCreate_Success(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo)
+	svc := NewService(repo, &mockMembershipChecker{})
 
 	task, err := svc.Create(context.Background(), CreateTaskRequest{
 		Title:       "Test Task",
 		Description: "Description",
-	}, "project-1")
+	}, "project-1", testUserID)
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -96,11 +108,11 @@ func TestServiceCreate_Success(t *testing.T) {
 
 func TestServiceCreate_EmptyTitle(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo)
+	svc := NewService(repo, &mockMembershipChecker{})
 
 	_, err := svc.Create(context.Background(), CreateTaskRequest{
 		Title: "",
-	}, "project-1")
+	}, "project-1", testUserID)
 
 	if err == nil {
 		t.Fatal("expected error for empty title")
@@ -114,7 +126,7 @@ func TestServiceUpdate_Success(t *testing.T) {
 		Title:     "Original",
 		Completed: false,
 	}
-	svc := NewService(repo)
+	svc := NewService(repo, &mockMembershipChecker{})
 
 	completed := true
 	_, err := svc.Update(context.Background(), "task-1", UpdateTaskRequest{
@@ -131,7 +143,7 @@ func TestServiceUpdate_Success(t *testing.T) {
 
 func TestServiceUpdate_NoFields(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo)
+	svc := NewService(repo, &mockMembershipChecker{})
 
 	_, err := svc.Update(context.Background(), "task-1", UpdateTaskRequest{})
 
@@ -143,7 +155,7 @@ func TestServiceUpdate_NoFields(t *testing.T) {
 func TestServiceDelete(t *testing.T) {
 	repo := newMockRepository()
 	repo.tasks["task-1"] = &models.Task{ID: "task-1"}
-	svc := NewService(repo)
+	svc := NewService(repo, &mockMembershipChecker{})
 
 	err := svc.Delete(context.Background(), "task-1")
 
@@ -157,10 +169,10 @@ func TestServiceDelete(t *testing.T) {
 
 func TestServiceGetByProject_DefaultLimit(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo)
+	svc := NewService(repo, &mockMembershipChecker{})
 
 	// limit 0 should default to 20
-	_, err := svc.GetByProject(context.Background(), "project-1", 0, "")
+	_, err := svc.GetByProject(context.Background(), "project-1", testUserID, 0, "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

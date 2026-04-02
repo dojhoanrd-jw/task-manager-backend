@@ -46,7 +46,8 @@ func (h *Handler) GetByProject(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	lastID := r.URL.Query().Get("lastId")
 
-	tasks, err := h.service.GetByProject(r.Context(), projectID, limit, lastID)
+	userID := r.Header.Get("X-User-ID")
+	tasks, err := h.service.GetByProject(r.Context(), projectID, userID, limit, lastID)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -90,7 +91,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.service.Create(r.Context(), req, projectID)
+	userID := r.Header.Get("X-User-ID")
+	task, err := h.service.Create(r.Context(), req, projectID, userID)
 	if err != nil {
 		handleError(w, err)
 		return

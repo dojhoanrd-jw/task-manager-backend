@@ -41,7 +41,7 @@ func main() {
 
 	// Initialize services
 	authService := auth.NewService(authRepo, cfg.JWTSecret, cfg.JWTExpiration)
-	taskService := tasks.NewService(taskRepo)
+	taskService := tasks.NewService(taskRepo, projectRepo)
 	projectService := projects.NewService(projectRepo)
 	userService := users.NewService(userRepo)
 
