@@ -17,7 +17,14 @@ app.get('/health', (req, res) => {
 
 // Routes
 const authRoutes = require('./features/auth/auth.routes');
+const taskRoutes = require('./features/tasks/tasks.routes');
+const projectRoutes = require('./features/projects/projects.routes');
+const userRoutes = require('./features/users/users.routes');
+
 app.use('/api/auth', authRoutes);
+app.use('/api', taskRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/users', userRoutes);
 
 // Start server
 app.listen(config.port, () => {
