@@ -54,7 +54,8 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.service.GetByID(r.Context(), projectID)
+	userID := r.Header.Get(headerUserID)
+	project, err := h.service.GetByID(r.Context(), projectID, userID)
 	if err != nil {
 		response.HandleError(w, err)
 		return

@@ -11,7 +11,7 @@ import (
 // ServiceInterface defines the contract for project business logic
 type ServiceInterface interface {
 	GetByUser(ctx context.Context, userID string) ([]models.Project, error)
-	GetByID(ctx context.Context, projectID string) (*models.Project, error)
+	GetByID(ctx context.Context, projectID string, userID string) (*models.Project, error)
 	Create(ctx context.Context, req CreateProjectRequest, ownerID string) (*models.Project, error)
 	Update(ctx context.Context, projectID string, req UpdateProjectRequest, userID string) (*models.Project, error)
 	Delete(ctx context.Context, projectID string, userID string) error
@@ -34,9 +34,20 @@ func (s *Service) GetByUser(ctx context.Context, userID string) ([]models.Projec
 	return s.repo.GetByUser(ctx, userID)
 }
 
-// GetByID returns a single project
-func (s *Service) GetByID(ctx context.Context, projectID string) (*models.Project, error) {
-	return s.repo.GetByID(ctx, projectID)
+// GetByID returns a single project if user is a member
+func (s *Service) GetByID(ctx context.Context, projectID string, userID string) (*models.Project, error) {
+	project, err := s.repo.GetByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, m := range project.Members {
+		if m == userID {
+			return project, nil
+		}
+	}
+
+	return nil, apperror.Forbidden("you are not a member of this project")
 }
 
 // Create validates and creates a new project
