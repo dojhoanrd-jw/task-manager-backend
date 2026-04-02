@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"google.golang.org/api/iterator"
 	"github.com/task-manager/task-service/config"
 	"github.com/task-manager/task-service/internal/auth"
 	"github.com/task-manager/task-service/internal/projects"
@@ -82,11 +83,22 @@ func main() {
 	mux.Handle("GET /users", authMiddleware(adminOnly(http.HandlerFunc(userHandler.GetAll))))
 	mux.Handle("PUT /users/{userId}/role", authMiddleware(adminOnly(http.HandlerFunc(userHandler.UpdateRole))))
 
-	// Health check
+	// Health check with Firestore connectivity
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		// Verify Firestore connection
+		iter := fsClient.Collections(r.Context())
+		_, err := iter.Next()
+		// err == iterator.Done is fine, means DB is reachable but empty
+		if err != nil && err != iterator.Done {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status":"unhealthy","firestore":"disconnected"}`))
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		w.Write([]byte(`{"status":"ok","firestore":"connected"}`))
 	})
 
 	// Apply global middleware
