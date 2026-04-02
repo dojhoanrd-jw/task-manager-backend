@@ -1,27 +1,17 @@
-const httpClient = require('../../shared/utils/http-client');
+const proxy = require('../../shared/utils/proxy');
 
-// Get all users (admin only)
 const getAll = async (req, res, next) => {
   try {
-    const { data } = await httpClient.get('/users', {
-      headers: { Authorization: req.token },
-    });
-
+    const { data } = await proxy.get('/users', req);
     res.json(data);
   } catch (error) {
     next(error);
   }
 };
 
-// Update user role (admin only)
 const updateRole = async (req, res, next) => {
   try {
-    const { userId } = req.params;
-
-    const { data } = await httpClient.put(`/users/${userId}/role`, req.body, {
-      headers: { Authorization: req.token },
-    });
-
+    const { data } = await proxy.put(`/users/${req.params.userId}/role`, req);
     res.json(data);
   } catch (error) {
     next(error);

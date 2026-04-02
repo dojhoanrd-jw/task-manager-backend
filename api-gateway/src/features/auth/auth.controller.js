@@ -1,6 +1,5 @@
 const httpClient = require('../../shared/utils/http-client');
 
-// Register a new user
 const register = async (req, res, next) => {
   try {
     const { data } = await httpClient.post('/auth/register', req.body);
@@ -10,7 +9,6 @@ const register = async (req, res, next) => {
   }
 };
 
-// Login user
 const login = async (req, res, next) => {
   try {
     const { data } = await httpClient.post('/auth/login', req.body);
